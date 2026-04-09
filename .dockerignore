@@ -6,3 +6,13 @@ node_modules
 *.md
 .cursor
 coverage
+
+# Local DB — image creates schema via docker-entrypoint; do not bake dev data
+*.db
+*.db-journal
+
+.vercel
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

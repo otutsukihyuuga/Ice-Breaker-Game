@@ -30,12 +30,16 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (secrets). Keep .env.example committable for new clones.
 .env*
+!.env.example
+
+# local SQLite (paths differ by DATABASE_URL; never commit DB files)
+*.db
+*.db-journal
 
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
