@@ -11,6 +11,7 @@ export function useSessionState(code: string, bootstrap: SessionState | null = n
   const [session, setSession] = useState<SessionState | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
 
   const load = useCallback(async () => {
     if (!code) return;
@@ -22,6 +23,7 @@ export function useSessionState(code: string, bootstrap: SessionState | null = n
         payload = JSON.parse(text) as { session?: SessionState; error?: string };
       } catch {
         setSession(null);
+        setNotFound(false);
         setError("Invalid response (not JSON). Is the API route reachable?");
         setLoading(false);
         return;
@@ -31,6 +33,7 @@ export function useSessionState(code: string, bootstrap: SessionState | null = n
         const message =
           typeof payload.error === "string" ? payload.error : `Failed to load session (${res.status})`;
         setSession(null);
+        setNotFound(res.status === 404);
         setError(message);
         setLoading(false);
         return;
@@ -38,16 +41,19 @@ export function useSessionState(code: string, bootstrap: SessionState | null = n
 
       if (!payload.session) {
         setSession(null);
+        setNotFound(false);
         setError("Session payload missing");
         setLoading(false);
         return;
       }
 
       setSession(payload.session);
+      setNotFound(false);
       setError(null);
       setLoading(false);
     } catch (err) {
       setSession(null);
+      setNotFound(false);
       setError(err instanceof Error ? err.message : "Network error loading session");
       setLoading(false);
     }
@@ -60,6 +66,7 @@ export function useSessionState(code: string, bootstrap: SessionState | null = n
     if (!code) {
       setSession(null);
       setError(null);
+      setNotFound(false);
       setLoading(false);
       return;
     }
@@ -68,10 +75,12 @@ export function useSessionState(code: string, bootstrap: SessionState | null = n
     if (hasBootstrap) {
       setSession(bootstrap);
       setError(null);
+      setNotFound(false);
       setLoading(false);
     } else {
       setLoading(true);
       setError(null);
+      setNotFound(false);
     }
 
     void loadRef.current();
@@ -98,5 +107,5 @@ export function useSessionState(code: string, bootstrap: SessionState | null = n
     // eslint-disable-next-line react-hooks/exhaustive-deps -- use id to avoid reruns on new object identity; bootstrap read from latest render
   }, [code, bootstrap?.id]);
 
-  return { session, loading, error, refresh: load };
+  return { session, loading, error, notFound, refresh: load };
 }

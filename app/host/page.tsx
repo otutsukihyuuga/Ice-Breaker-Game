@@ -141,9 +141,11 @@ export default function HostPage() {
               ))}
             </div>
             {session.currentPrompt && (
-              <div className="mt-4 rounded bg-zinc-100 p-3">
-                <p className="text-xs uppercase">{session.currentPromptType}</p>
-                <p className="text-lg font-medium">{session.currentPrompt}</p>
+              <div className="mt-4 rounded border border-zinc-300 bg-zinc-100 p-3 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50">
+                <p className="text-xs font-medium uppercase tracking-wide text-zinc-600 dark:text-zinc-400">
+                  {session.currentPromptType}
+                </p>
+                <p className="mt-1 text-lg font-medium leading-snug">{session.currentPrompt}</p>
               </div>
             )}
           </section>
