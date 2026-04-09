@@ -6,6 +6,12 @@ export default function AdminHomePage() {
       <h1 className="text-2xl font-bold">Admin</h1>
       <ul className="list-inside list-disc space-y-3 text-zinc-700 dark:text-zinc-300">
         <li>
+          <Link className="font-medium text-zinc-900 underline dark:text-zinc-100" href="/admin/data">
+            Database overview
+          </Link>
+          <span className="block pl-6 text-sm">View sessions, teams, prompts, and history in tables (enter admin key).</span>
+        </li>
+        <li>
           <Link className="font-medium text-zinc-900 underline dark:text-zinc-100" href="/admin/prompts">
             Prompts
           </Link>
