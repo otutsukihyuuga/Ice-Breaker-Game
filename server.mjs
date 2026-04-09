@@ -1,8 +1,13 @@
+import nextEnv from "@next/env";
 import { createServer } from "node:http";
 import next from "next";
 import { Server } from "socket.io";
 
+const { loadEnvConfig } = nextEnv;
+
 const dev = process.env.NODE_ENV !== "production";
+// Custom server does not auto-load .env like `next dev` — same behavior as Render-injected env once loaded.
+loadEnvConfig(process.cwd(), dev);
 const port = Number(process.env.PORT || 3000);
 
 const app = next({ dev });
