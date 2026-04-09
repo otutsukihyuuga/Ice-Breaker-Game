@@ -14,6 +14,8 @@ export type SessionState = {
     name: string;
     position: number;
     captainClientId: string | null;
+    lastDiceRoll: number | null;
+    token: string;
   }>;
   activeTeamId: string | null;
 };

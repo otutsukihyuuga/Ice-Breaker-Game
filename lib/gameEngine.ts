@@ -1,5 +1,6 @@
+import type { PromptType, SessionStatus } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
-import type { PromptType } from "@/lib/constants";
+import { tokenForTeamIndex } from "@/lib/teamTokens";
 
 export const BOARD: PromptType[] = [
   "MOVE",
@@ -31,11 +32,28 @@ export function rollDice() {
 export async function getSessionState(code: string) {
   const session = await prisma.session.findUnique({
     where: { code },
-    include: { teams: true },
+    include: { teams: { orderBy: { createdAt: "asc" } } },
   });
   if (!session) return null;
+
+  const teams = session.teams.map((t, i) => ({
+    id: t.id,
+    name: t.name,
+    position: t.position,
+    captainClientId: t.captainClientId,
+    lastDiceRoll: t.lastDiceRoll,
+    token: tokenForTeamIndex(i),
+  }));
+
   return {
-    ...session,
+    id: session.id,
+    code: session.code,
+    status: session.status as SessionStatus,
+    currentTeamIndex: session.currentTeamIndex,
+    round: session.round,
+    currentPrompt: session.currentPrompt,
+    currentPromptType: session.currentPromptType as PromptType | null,
+    teams,
     board: BOARD,
     activeTeamId: session.teams[session.currentTeamIndex]?.id ?? null,
   };
@@ -66,7 +84,10 @@ async function drawPrompt(sessionId: string, type: PromptType) {
 }
 
 export async function executeRoll(code: string, clientId: string, wildcardChoice?: PromptType) {
-  const session = await prisma.session.findUnique({ where: { code }, include: { teams: true } });
+  const session = await prisma.session.findUnique({
+    where: { code },
+    include: { teams: { orderBy: { createdAt: "asc" } } },
+  });
   if (!session) throw new Error("Session not found");
   if (session.status !== "ACTIVE") throw new Error("Session is not active");
 
@@ -87,7 +108,10 @@ export async function executeRoll(code: string, clientId: string, wildcardChoice
   if (!prompt) throw new Error("No prompts available for this type");
 
   await prisma.$transaction([
-    prisma.team.update({ where: { id: team.id }, data: { position: newPosition } }),
+    prisma.team.update({
+      where: { id: team.id },
+      data: { position: newPosition, lastDiceRoll: dice },
+    }),
     prisma.session.update({
       where: { id: session.id },
       data: { currentPromptId: prompt.id, currentPrompt: prompt.text, currentPromptType: finalType },
@@ -99,7 +123,10 @@ export async function executeRoll(code: string, clientId: string, wildcardChoice
 }
 
 export async function advanceTurn(code: string) {
-  const session = await prisma.session.findUnique({ where: { code }, include: { teams: true } });
+  const session = await prisma.session.findUnique({
+    where: { code },
+    include: { teams: { orderBy: { createdAt: "asc" } } },
+  });
   if (!session) throw new Error("Session not found");
   if (!session.teams.length) throw new Error("No teams available");
 

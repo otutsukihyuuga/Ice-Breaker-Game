@@ -1,5 +1,7 @@
 "use client";
 
+import { GameBoard } from "@/components/GameBoard";
+import { TeamDicePanel } from "@/components/TeamDicePanel";
 import type { PromptType } from "@/lib/constants";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -15,42 +17,65 @@ function getClientId() {
 }
 
 export default function PlayerPage({ params }: { params: Promise<{ code: string }> }) {
-  const [clientId, setClientId] = useState("");
   const [teamId, setTeamId] = useState("");
   const [isCaptain, setIsCaptain] = useState(false);
   const [wildcardChoice, setWildcardChoice] = useState<PromptType>("MOVE");
   const [code, setCode] = useState("");
 
   useEffect(() => {
-    (async () => {
+    void (async () => {
       const p = await params;
       setCode(p.code.toUpperCase());
-      setClientId(getClientId());
     })();
   }, [params]);
 
   const { session, loading, error, notFound, refresh } = useSessionState(code);
   const myTeam = session?.teams.find((t) => t.id === teamId);
   const isMyTurn = !!(myTeam && session?.activeTeamId === myTeam.id);
+  const [joinErr, setJoinErr] = useState<string | null>(null);
+  const [rollErr, setRollErr] = useState<string | null>(null);
 
   async function joinTeam(nextTeamId: string) {
+    setJoinErr(null);
+    const cid = getClientId();
+    if (!cid) {
+      setJoinErr("Could not create a player id. Allow storage or try another browser.");
+      return;
+    }
     setTeamId(nextTeamId);
     const res = await fetch("/api/teams/join", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, teamId: nextTeamId, clientId }),
+      body: JSON.stringify({ code, teamId: nextTeamId, clientId: cid }),
     });
-    const payload = await res.json();
-    setIsCaptain(payload.isCaptain);
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setTeamId("");
+      setIsCaptain(false);
+      setJoinErr(typeof payload.error === "string" ? payload.error : `Join failed (${res.status})`);
+      return;
+    }
+    setIsCaptain(!!payload.isCaptain);
     await refresh();
   }
 
   async function roll() {
-    await fetch("/api/sessions", {
+    setRollErr(null);
+    const cid = getClientId();
+    if (!cid) {
+      setRollErr("Missing player id. Reload the page and join your team again.");
+      return;
+    }
+    const res = await fetch("/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "roll", code, clientId, wildcardChoice }),
+      body: JSON.stringify({ action: "roll", code, clientId: cid, wildcardChoice }),
     });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setRollErr(typeof payload.error === "string" ? payload.error : `Roll failed (${res.status})`);
+      return;
+    }
     await refresh();
   }
 
@@ -111,13 +136,31 @@ export default function PlayerPage({ params }: { params: Promise<{ code: string 
       <h1 className="text-2xl font-bold">Session {code}</h1>
       <p className="text-sm text-zinc-600">Status: {session.status}</p>
 
+      <section className="rounded border border-zinc-200 p-4 dark:border-zinc-700">
+        <h2 className="font-semibold">Board</h2>
+        <div className="mt-3">
+          <TeamDicePanel teams={session.teams} activeTeamId={session.activeTeamId} />
+        </div>
+        <div className="mt-4 overflow-x-auto">
+          <GameBoard board={session.board} teams={session.teams} />
+        </div>
+      </section>
+
       {!teamId && (
-        <section className="rounded border border-zinc-200 p-4">
+        <section className="rounded border border-zinc-200 p-4 dark:border-zinc-700">
           <h2 className="font-semibold">Choose your team</h2>
+          {joinErr && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{joinErr}</p>}
           <div className="mt-3 grid gap-2">
             {session.teams.map((team) => (
-              <button key={team.id} className="rounded border border-zinc-300 p-2 text-left" onClick={() => joinTeam(team.id)}>
-                {team.name}
+              <button
+                key={team.id}
+                className="flex items-center gap-2 rounded border border-zinc-300 p-2 text-left dark:border-zinc-600"
+                onClick={() => joinTeam(team.id)}
+              >
+                <span className="text-xl" aria-hidden>
+                  {team.token}
+                </span>
+                <span>{team.name}</span>
               </button>
             ))}
           </div>
@@ -125,9 +168,14 @@ export default function PlayerPage({ params }: { params: Promise<{ code: string 
       )}
 
       {teamId && (
-        <section className="rounded border border-zinc-200 p-4">
-          <p>
-            Team: <span className="font-semibold">{myTeam?.name}</span> {isCaptain ? "(Captain)" : ""}
+        <section className="rounded border border-zinc-200 p-4 dark:border-zinc-700">
+          <p className="flex flex-wrap items-center gap-2">
+            <span className="text-2xl" aria-hidden>
+              {myTeam?.token}
+            </span>
+            <span>
+              Team: <span className="font-semibold">{myTeam?.name}</span> {isCaptain ? "(Captain)" : ""}
+            </span>
           </p>
           <p className="text-sm text-zinc-600">{isMyTurn ? "Your team is active." : "Waiting for your turn."}</p>
 
@@ -143,12 +191,23 @@ export default function PlayerPage({ params }: { params: Promise<{ code: string 
               <option value="CREATE">CREATE</option>
             </select>
             <button
-              onClick={roll}
+              type="button"
+              onClick={() => void roll()}
               disabled={!isMyTurn || !isCaptain || session.status !== "ACTIVE"}
-              className="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
+              className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-black"
             >
               Roll Dice
             </button>
+            {rollErr && <p className="text-sm text-red-600 dark:text-red-400">{rollErr}</p>}
+            {session.status !== "ACTIVE" && (
+              <p className="text-xs text-zinc-500">The host must press Start Game before anyone can roll.</p>
+            )}
+            {session.status === "ACTIVE" && !isCaptain && (
+              <p className="text-xs text-zinc-500">Only your team&apos;s first player (captain) can roll.</p>
+            )}
+            {session.status === "ACTIVE" && isCaptain && !isMyTurn && (
+              <p className="text-xs text-zinc-500">Wait until it is your team&apos;s turn to roll.</p>
+            )}
           </div>
         </section>
       )}

@@ -18,11 +18,14 @@ export async function POST(req: NextRequest) {
   const team = session.teams.find((t) => t.id === teamId);
   if (!team) return NextResponse.json({ error: "Team not found" }, { status: 404 });
 
-  const isCaptain = !team.captainClientId;
-  if (isCaptain) {
+  const claimingCaptain = !team.captainClientId;
+  if (claimingCaptain) {
     await prisma.team.update({ where: { id: team.id }, data: { captainClientId: clientId } });
   }
 
+  const updated = await prisma.team.findUnique({ where: { id: team.id } });
+  const playerIsCaptain = updated?.captainClientId === clientId;
+
   emitSessionUpdate(code);
-  return NextResponse.json({ ok: true, isCaptain: isCaptain || team.captainClientId === clientId });
+  return NextResponse.json({ ok: true, isCaptain: !!playerIsCaptain });
 }
