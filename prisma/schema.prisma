@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Prompt {
+  id        String   @id @default(cuid())
+  type      String
+  text      String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Session {
+  id               String               @id @default(cuid())
+  code             String               @unique
+  status           String               @default("WAITING")
+  currentTeamIndex Int                  @default(0)
+  round            Int                  @default(1)
+  boardSize        Int                  @default(20)
+  currentPromptId  String?
+  currentPrompt    String?
+  currentPromptType String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  teams            Team[]
+  promptHistory    SessionPromptHistory[]
+}
+
+model Team {
+  id              String   @id @default(cuid())
+  sessionId       String
+  session         Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  name            String
+  position        Int      @default(0)
+  captainClientId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model SessionPromptHistory {
+  id        String   @id @default(cuid())
+  sessionId String
+  promptId  String
+  createdAt DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, promptId])
+}
